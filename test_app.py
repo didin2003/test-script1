@@ -36,7 +36,7 @@ def test_post_requests():
     except:
         pass
     import os
-os.environ["SECRET_KEY"] = "test123"
+    os.environ["SECRET_KEY"] = "test123"
 
 import app
 

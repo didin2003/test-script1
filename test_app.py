@@ -116,8 +116,10 @@ def test_post_requests():
     try:
         client.post('/register', data={'username': 'a', 'password': 'b'})
     except:
-        passimport os
-os.environ["SECRET_KEY"] = "test123"
+        pass
+        
+import os
+    os.environ["SECRET_KEY"] = "test123"
 
 import app
 
@@ -159,8 +161,10 @@ def test_post_requests():
     try:
         client.post('/register', data={'username': 'a', 'password': 'b'})
     except:
-        passimport os
-os.environ["SECRET_KEY"] = "test123"
+        pass
+        
+import os
+    os.environ["SECRET_KEY"] = "test123"
 
 import app
 
@@ -202,8 +206,10 @@ def test_post_requests():
     try:
         client.post('/register', data={'username': 'a', 'password': 'b'})
     except:
-        passimport os
-os.environ["SECRET_KEY"] = "test123"
+        pass
+        
+import os
+    os.environ["SECRET_KEY"] = "test123"
 
 from app import app
 

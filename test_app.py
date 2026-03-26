@@ -34,7 +34,8 @@ def test_post_requests():
     try:
         client.post('/register', data={'username': 'a', 'password': 'b'})
     except:
-        passimport os
+        pass
+    import os
 os.environ["SECRET_KEY"] = "test123"
 
 import app

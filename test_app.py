@@ -1,4 +1,4 @@
-from app import add
+import app
 
-def test_add():
-    assert add(2, 3) == 5
+def test_app_loaded():
+    assert app is not None

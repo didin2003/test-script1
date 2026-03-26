@@ -1,4 +1,4 @@
-import re, json, sqlite3, os, time, base64, traceback, threading, shutil, hmac, hashlib
+import re, json, sqlite3, os, time, base64, traceback, threading, shutil, hmac, hashlib, uuid
 import smtplib
 import logging
 from logging.handlers import RotatingFileHandler
@@ -22,20 +22,24 @@ app = Flask(__name__)
 # Trust reverse proxy headers for HTTPS (Cloudflare Tunnel)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
-limiter = Limiter(get_remote_address, app=app, default_limits=["5000 per day", "1000 per hour"])
+# Enterprise Rate Limiting using memory storage to prevent warnings
+limiter = Limiter(get_remote_address, app=app, default_limits=["5000 per day", "1000 per hour"], storage_uri="memory://")
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
     raise Exception("SECRET_KEY must be set in environment (e.g. export SECRET_KEY='your_random_string')")
 app.secret_key = SECRET_KEY
 
-# ✅ FIX 3: Changed SameSite to Lax so Cloudflare Tunnel passes CSRF cookies properly
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SECURE=True, 
+    SESSION_COOKIE_SECURE=False, # Set to False temporarily if testing locally or behind Cloudflare Tunnel terminating SSL
     SESSION_COOKIE_SAMESITE='Lax',
     MAX_CONTENT_LENGTH=50 * 1024 * 1024
 )
+
+# 🛡️ 1. GLOBAL NONCE CACHE FOR ANTI-REPLAY
+USED_NONCES = set()
+NONCE_LOCK = Lock()
 
 @app.before_request
 def enforce_https_and_limits():
@@ -53,8 +57,8 @@ def set_headers(response):
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     
-    # ✅ FIX 1 & 2: Added 'blob:' to img-src for Live Screen, and allowed unsafe-inline for dynamic UI styling
-    response.headers['Content-Security-Policy'] = "default-src 'self'; img-src 'self' data: https: blob:; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com data: https://cdnjs.cloudflare.com; connect-src 'self' https:;"
+    # Strict CSP explicitly allowing blob: for Live Screen and Cloudflare Insights
+    response.headers['Content-Security-Policy'] = "default-src 'self'; img-src 'self' data: https: blob:; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com data: https://cdnjs.cloudflare.com; connect-src 'self' https:;"
     return response
 
 DB_PATH = 'data/fortigrid.db'
@@ -106,41 +110,44 @@ def csrf_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+# 🛡️ 2. ZERO-TRUST HMAC + NONCE AGENT VERIFICATION
 def verify_agent(req):
     api_key = req.headers.get("X-API-KEY")
     signature = req.headers.get("X-SIGNATURE")
     timestamp = req.headers.get("X-TIMESTAMP")
+    nonce = req.headers.get("X-NONCE")
 
-    if not api_key or not signature or not timestamp: return None
+    if not api_key or not signature or not timestamp or not nonce: return None
 
     try:
         if abs(time.time() - int(timestamp)) > 300:
-            logging.warning(f"Replay attack prevention triggered for {api_key}")
+            logging.warning(f"Replay attack prevention triggered for Token: {api_key[:10]}...")
             return None
     except Exception: return None
 
-    host = api_key.upper()
-    expected_token = None
-    now = time.time()
-    
-    entry = AGENT_CACHE.get(host)
-    if entry and now - entry['time'] < AGENT_CACHE_TTL:
-        expected_token = entry['token']
-    else:
-        try:
-            with get_db() as conn:
-                row = conn.cursor().execute("SELECT token FROM agents_auth WHERE hostname=?", (host,)).fetchone()
-                if row:
-                    expected_token = row[0]
-                    AGENT_CACHE[host] = {'token': expected_token, 'time': now}
-        except Exception as e:
-            logging.error(f"Auth DB Check Error: {e}")
+    with NONCE_LOCK:
+        if nonce in USED_NONCES:
+            logging.warning(f"Nonce reuse detected for Token: {api_key[:10]}...")
             return None
+        USED_NONCES.add(nonce)
 
-    if not expected_token: return None
+    # Map Token to Hostname
+    host = None
+    try:
+        with get_db() as conn:
+            row = conn.cursor().execute("SELECT hostname FROM agents_auth WHERE token=?", (api_key,)).fetchone()
+            if row: host = row[0]
+    except Exception as e:
+        logging.error(f"Auth DB Check Error: {e}")
+        return None
 
+    if not host: return None
+
+    # Sign Data = Body + Timestamp + Nonce
     body = req.get_data()
-    expected_sig = hmac.new(expected_token.encode(), body + timestamp.encode(), hashlib.sha256).hexdigest()
+    data_to_sign = body + timestamp.encode() + nonce.encode()
+    
+    expected_sig = hmac.new(api_key.encode(), data_to_sign, hashlib.sha256).hexdigest()
 
     if not hmac.compare_digest(expected_sig, signature):
         logging.warning(f"Invalid HMAC signature from {host}")
@@ -157,6 +164,8 @@ def agent_hmac_required(f):
             
         data = request.get_json(silent=True) or {}
         declared_host = get_host_from_data(data)
+        
+        # If GET request, check args
         if declared_host == "UNKNOWN" and request.args.get('hostname'):
             declared_host = str(request.args.get('hostname')).strip().upper()
             
@@ -164,15 +173,16 @@ def agent_hmac_required(f):
             logging.warning(f"Host mismatch: Authenticated as {verified_host} but claimed {declared_host}")
             return jsonify({"error": "Host identity mismatch"}), 403
             
+        # Attach the verified host to the request object so routes can use it safely
+        request.verified_host = verified_host
         return f(*args, **kwargs)
     return decorated_function
 
 def cleanup_files():
     while True:
         try:
-            global AGENT_CACHE
-            if len(AGENT_CACHE) > 1000: 
-                AGENT_CACHE = {k: v for k, v in AGENT_CACHE.items() if time.time() - v['time'] < AGENT_CACHE_TTL}
+            with NONCE_LOCK:
+                if len(USED_NONCES) > 10000: USED_NONCES.clear()
             
             for folder in ['data/screens', 'data/downloads']:
                 for f in os.listdir(folder):
@@ -292,8 +302,7 @@ def init_db():
             c.execute('''CREATE TABLE IF NOT EXISTS processes_store (hostname TEXT PRIMARY KEY, result TEXT)''')
             
             c.execute("INSERT OR IGNORE INTO settings (id, cpu_alert, ram_alert, disk_alert, offline_alert, email_to, smtp_server, smtp_user, smtp_pass) VALUES (1, 95, 90, 5, 10, '', 'smtp.gmail.com:587', '', '')")
-            c.execute("SELECT * FROM users WHERE username='admin'")
-            if not c.fetchone(): c.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", ('admin', generate_password_hash('admin123'), 'admin'))
+            # REMOVED HARDCODED ADMIN FOR SECURE SETUP ROUTE
             conn.commit()
     except Exception as e: logging.error(f"Init DB: {e}")
 init_db()
@@ -349,6 +358,7 @@ def queue_cmd(hostname, cmd):
     try:
         with get_db() as conn:
             c = conn.cursor()
+            
             c.execute("SELECT token FROM agents_auth WHERE hostname=?", (hostname,))
             token_row = c.fetchone()
             if not token_row: return
@@ -373,11 +383,46 @@ def queue_cmd(hostname, cmd):
             conn.commit()
     except Exception as e: logging.error(f"Queue Cmd: {e}")
 
+# 🛡️ SECURE FIRST-TIME SETUP ROUTE
+@app.route('/setup', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
+def setup():
+    error = None
+    with get_db() as conn:
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM users")
+        if c.fetchone()[0] > 0:
+            return redirect(url_for('login'))
+            
+        if request.method == 'POST':
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '')
+            
+            if not username or len(password) < 8:
+                error = "Username required and password must be at least 8 characters."
+            else:
+                c.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", 
+                          (username, generate_password_hash(password), 'admin'))
+                conn.commit()
+                audit_log(username, "system_setup", "system")
+                
+                session['user'] = username
+                session['role'] = 'admin'
+                session['csrf_token'] = os.urandom(16).hex()
+                return redirect(url_for('dashboard'))
+                
+    return render_template('setup.html', error=error)
+
 @app.route('/login', methods=['GET', 'POST'])
 @limiter.limit("10 per minute")
 def login():
     error = None
+    with get_db() as conn:
+        if conn.cursor().execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
+            return redirect(url_for('setup'))
+
     if request.method == 'POST':
+        if not check_login_rate(request.remote_addr): return render_template('login.html', error="Too many attempts. Please wait 5 minutes.")
         try:
             with get_db() as conn:
                 c = conn.cursor()
@@ -457,7 +502,7 @@ def get_data():
 def receive_report():
     try:
         data = request.get_json(silent=True) or {}
-        host = get_host_from_data(data)
+        host = request.verified_host
         if host != "UNKNOWN": 
             update_agent_data(host, data, is_full=True)
     except Exception as e: logging.error(f"Receive Report: {e}")
@@ -468,7 +513,7 @@ def receive_report():
 def receive_heartbeat():
     try:
         data = request.get_json(silent=True) or {}
-        host = get_host_from_data(data)
+        host = request.verified_host
         if host != "UNKNOWN": 
             update_agent_data(host, data, is_full=False)
             with get_db() as conn:
@@ -483,11 +528,11 @@ def receive_heartbeat():
     except Exception as e: logging.error(f"Heartbeat: {e}")
     return jsonify({"status": "success"}), 200
 
-@app.route('/api/commands/get', methods=['GET'])
+@app.route('/api/commands/get', methods=['POST'])
 @agent_hmac_required
 def get_commands():
     try:
-        host = get_clean_host(request.args.get('hostname'))
+        host = request.verified_host
         if host == "UNKNOWN": return jsonify({"commands": []})
         with get_db() as conn:
             c = conn.cursor()
@@ -508,7 +553,8 @@ def get_commands():
 def upload_screen():
     try:
         data = request.get_json(silent=True) or {}
-        host = get_clean_host(data.get('hostname') or data.get('host')); img = data.get('image', '')
+        host = request.verified_host
+        img = data.get('image', '')
         if len(img) > 15_000_000: return jsonify({"error": "Image payload too large"}), 400
         if host != "UNKNOWN" and img:
             val = str(img).strip()
@@ -523,11 +569,12 @@ def upload_screen():
         return jsonify({"status": "success"})
     except Exception as e: logging.error(f"Upload Screen: {e}"); return jsonify({"status": "error"}), 200
 
-@app.route('/api/terminal/agent_poll', methods=['GET'])
+@app.route('/api/terminal/agent_poll', methods=['POST'])
 @agent_hmac_required
 def term_agent_poll():
     try:
-        host = get_clean_host(request.args.get('hostname')); cmd = ""
+        host = request.verified_host
+        cmd = ""
         with get_db() as conn:
             c = conn.cursor()
             c.execute("SELECT cmd FROM terminal_store WHERE hostname=?", (host,))
@@ -542,7 +589,8 @@ def term_agent_poll():
 def term_agent_push():
     try:
         data = request.get_json(silent=True) or {}
-        host = get_clean_host(data.get('hostname')); out = data.get('output', '')
+        host = request.verified_host
+        out = data.get('output', '')
         with get_db() as conn:
             c = conn.cursor()
             c.execute("SELECT output FROM terminal_store WHERE hostname=?", (host,))
@@ -557,12 +605,13 @@ def term_agent_push():
     except Exception as e: logging.error(f"Terminal Push: {e}")
     return jsonify({"status": "saved"})
 
-@app.route('/api/explorer/push', methods=['POST'])
+@app.route('/api/explorer/update', methods=['POST'])
 @agent_hmac_required
 def explorer_push():
     try:
         data = request.get_json(silent=True) or {}
-        host = get_clean_host(data.get('hostname')); result = data.get('result', '')
+        host = request.verified_host
+        result = data.get('result', '')
         with get_db() as conn:
             c = conn.cursor()
             c.execute("SELECT hostname FROM explorer_store WHERE hostname=?", (host,))
@@ -572,12 +621,13 @@ def explorer_push():
     except Exception as e: logging.error(f"Explorer Push: {e}")
     return jsonify({"status": "saved"})
 
-@app.route('/api/services/push', methods=['POST'])
+@app.route('/api/services/update', methods=['POST'])
 @agent_hmac_required
 def services_push():
     try:
         data = request.get_json(silent=True) or {}
-        host = get_clean_host(data.get('hostname')); result = data.get('result', '')
+        host = request.verified_host
+        result = data.get('result', '')
         with get_db() as conn:
             c = conn.cursor()
             c.execute("SELECT hostname FROM services_store WHERE hostname=?", (host,))
@@ -587,12 +637,13 @@ def services_push():
     except Exception as e: logging.error(f"Services Push: {e}")
     return jsonify({"status": "saved"})
 
-@app.route('/api/eventlog/push', methods=['POST'])
+@app.route('/api/eventlog/update', methods=['POST'])
 @agent_hmac_required
 def eventlog_push():
     try:
         data = request.get_json(silent=True) or {}
-        host = get_clean_host(data.get('hostname')); result = data.get('result', '')
+        host = request.verified_host
+        result = data.get('result', '')
         with get_db() as conn:
             c = conn.cursor()
             c.execute("SELECT hostname FROM eventlog_store WHERE hostname=?", (host,))
@@ -607,7 +658,8 @@ def eventlog_push():
 def log_script():
     try:
         data = request.get_json(silent=True) or {}
-        host = get_clean_host(data.get('hostname')); script_id = data.get('script_id'); output = data.get('output', '')
+        host = request.verified_host
+        script_id = data.get('script_id'); output = data.get('output', '')
         with get_db() as conn:
             c = conn.cursor()
             c.execute("SELECT name FROM scripts_store WHERE id=?", (script_id,))
@@ -622,7 +674,8 @@ def log_script():
 def update_processes():
     try:
         data = request.get_json(silent=True) or {}
-        host = get_clean_host(data.get('hostname')); result = data.get('result', '')
+        host = request.verified_host
+        result = data.get('result', '')
         with get_db() as conn:
             c = conn.cursor()
             c.execute("SELECT hostname FROM processes_store WHERE hostname=?", (host,))
@@ -637,7 +690,8 @@ def update_processes():
 def create_ticket():
     try:
         data = request.get_json(silent=True) or {}
-        host = get_clean_host(data.get('hostname')); severity = data.get('severity', 'Info'); message = data.get('message', '')
+        host = request.verified_host
+        severity = data.get('severity', 'Info'); message = data.get('message', '')
         if host != "UNKNOWN" and message:
             with get_db() as conn:
                 c = conn.cursor()
@@ -650,7 +704,8 @@ def create_ticket():
 @agent_hmac_required
 def transfer_push():
     data = request.get_json(silent=True) or {}
-    host = get_clean_host(data.get('hostname')); filepath = data.get('filepath', ''); b64_data = data.get('data', '')
+    host = request.verified_host
+    filepath = data.get('filepath', ''); b64_data = data.get('data', '')
     if host != "UNKNOWN" and filepath and b64_data:
         try:
             filename = secure_filename(os.path.basename(filepath.replace('\\', '/')))

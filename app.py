@@ -201,7 +201,7 @@ def verify_agent(req):
                         logging.info(f"[AUTO-REGISTER] Secure connection established for new host: {host}")
                 except Exception:
                     logging.exception("Auto-register logging failed")
-    except Exception as e: return None
+    except Exception as _: return None
 
     if not host: return None
 
@@ -311,7 +311,7 @@ def alert_monitor_daemon():
                             send_custom_email(s_to, s_srv, s_user, s_pass, f"🚨 OFFLINE ALERT: {host}", f"Endpoint {host} unreachable for {s_off} mins.")
                             alerted_states.add(alert_key)
                     else: alerted_states.discard(f"{host}_offline")
-        except Exception as e:
+        except Exception as _:
             app.logger.exception(f"Monitor loop error for host={host}")
         time.sleep(60)
 threading.Thread(target=alert_monitor_daemon, daemon=True).start()
@@ -341,7 +341,7 @@ def update_agent_data(hostname, new_data, is_full=False):
                 if row[1]:
                     try:
                         payload = json.loads(row[1]) if row[1] else {}
-                    except Exception as e:
+                    except Exception as _:
                         app.logger.exception("Failed to parse payload JSON")
                         payload = {}
                 if (now - last_seen_db) > 120: payload['last_logout'] = last_seen_db; payload['last_login'] = now
@@ -364,7 +364,7 @@ def update_agent_data(hostname, new_data, is_full=False):
             if row: c.execute("UPDATE agents_store SET last_seen=?, payload=? WHERE hostname=?", (now, json.dumps(payload), hostname))
             else: c.execute("INSERT INTO agents_store (hostname, last_seen, payload, command_queue) VALUES (?, ?, ?, '[]')", (hostname, now, json.dumps(payload)))
             conn.commit()
-    except Exception as e:
+    except Exception as _:
         app.logger.exception("Database operation failed")
 
 def queue_cmd(hostname, cmd):
@@ -379,7 +379,7 @@ def queue_cmd(hostname, cmd):
             if row and row[0]:
                 try:
                     cmds = json.loads(row[0]) if row and row[0] else []
-                except Exception as e:
+                except Exception as _:
                     app.logger.exception("Failed to parse cmds JSON from DB")
                     cmds = []
             
@@ -389,7 +389,7 @@ def queue_cmd(hostname, cmd):
             if row: c.execute("UPDATE agents_store SET command_queue=? WHERE hostname=?", (json.dumps(cmds), hostname))
             else: c.execute("INSERT INTO agents_store (hostname, last_seen, payload, command_queue) VALUES (?, ?, '{}', ?)", (hostname, int(time.time()), json.dumps(cmds)))
             conn.commit()
-    except Exception as e:
+    except Exception as _:
         app.logger.exception("Database commit failed")
 
 @app.route('/setup', methods=['GET', 'POST'])
@@ -491,7 +491,7 @@ def receive_report():
     try:
         data = request.get_json(silent=True) or {}
         if request.verified_host != "UNKNOWN": update_agent_data(request.verified_host, data, is_full=True)
-    except Exception as e:
+    except Exception as _:
         app.logger.exception("Failed to update agent data")
     return jsonify({"status": "success"})
 
@@ -513,7 +513,7 @@ def receive_heartbeat():
                 if len(hist) > 20: hist.pop(0)
                 c.execute("REPLACE INTO perf_history (hostname, history_json) VALUES (?, ?)", (host, json.dumps(hist)))
                 conn.commit()
-    except Exception as e:
+    except Exception as _:
         app.logger.exception("Database operation failed")
     return jsonify({"status": "success"}), 200
 
@@ -567,7 +567,7 @@ def upload_screen():
 
                 os.replace(temp_filepath, filepath)
 
-            except Exception as e:
+            except Exception as _:
                 return jsonify({"error": "Image processing failed"}), 400
 
         return jsonify({"status": "success"})
@@ -605,7 +605,7 @@ def term_agent_push():
             if row: c.execute("UPDATE terminal_store SET output=? WHERE hostname=?", (new_out, host))
             else: c.execute("INSERT INTO terminal_store (hostname, cmd, output) VALUES (?, NULL, ?)", (host, new_out))
             conn.commit()
-    except Exception as e:
+    except Exception as _:
          app.logger.exception("Database commit failed")
     return jsonify({"status": "saved"})
 
@@ -622,7 +622,7 @@ def explorer_push():
             if c.fetchone(): c.execute("UPDATE explorer_store SET result=? WHERE hostname=?", (result, host))
             else: c.execute("INSERT INTO explorer_store (hostname, path, result) VALUES (?, '', ?)", (host, result))
             conn.commit()
-    except Exception as e:
+    except Exception as _:
          app.logger.exception("Database commit failed")
     return jsonify({"status": "saved"})
 
@@ -639,7 +639,7 @@ def services_push():
             if c.fetchone(): c.execute("UPDATE services_store SET result=? WHERE hostname=?", (result, host))
             else: c.execute("INSERT INTO services_store (hostname, result) VALUES (?, ?)", (host, result))
             conn.commit()
-    except Exception as e:
+    except Exception as _:
          app.logger.exception("Database commit failed")
     return jsonify({"status": "saved"})
 
@@ -656,7 +656,7 @@ def eventlog_push():
             if c.fetchone(): c.execute("UPDATE eventlog_store SET result=? WHERE hostname=?", (result, host))
             else: c.execute("INSERT INTO eventlog_store (hostname, result) VALUES (?, ?)", (host, result))
             conn.commit()
-    except Exception as e:
+    except Exception as _:
          app.logger.exception("Database commit failed")
     return jsonify({"status": "saved"})
 
@@ -689,7 +689,7 @@ def update_processes():
             if c.fetchone(): c.execute("UPDATE processes_store SET result=? WHERE hostname=?", (result, host))
             else: c.execute("INSERT INTO processes_store (hostname, result) VALUES (?, ?)", (host, result))
             conn.commit()
-    except Exception as e:
+    except Exception as _:
          app.logger.exception("Database commit failed")
     return jsonify({"status": "saved"})
 
@@ -705,7 +705,7 @@ def create_ticket():
                 c = conn.cursor()
                 c.execute("INSERT INTO tickets (hostname, severity, message, status) VALUES (?, ?, ?, 'Open')", (host, severity, message))
                 conn.commit()
-    except Exception as e:
+    except Exception as _:
          app.logger.exception("Database commit failed")
          return jsonify({"error": "Operation failed"}), 500
     return jsonify({"status": "success"})
@@ -750,7 +750,7 @@ def queue_command():
             queue_cmd(host, cmd)
             audit_log(session.get('user'), f"queued_command_{base_cmd}", host)
         return jsonify({"status": "queued"})
-    except Exception as e: return jsonify({"status": "error"}), 500
+    except Exception as _: return jsonify({"status": "error"}), 500
 
 @app.route('/api/settings', methods=['GET', 'POST'])
 @csrf_required
@@ -860,7 +860,7 @@ def services_req():
             if c.fetchone(): c.execute("UPDATE services_store SET result='' WHERE hostname=?", (host,))
             else: c.execute("INSERT INTO services_store (hostname, result) VALUES (?, '')", (host,))
             conn.commit()
-    except Exception as e:
+    except Exception as _:
         app.logger.exception("Database commit failed")
     return jsonify({"status": "sent"})
 
@@ -890,7 +890,7 @@ def explorer_req():
             if c.fetchone(): c.execute("UPDATE explorer_store SET path=?, result='' WHERE hostname=?", (path, host))
             else: c.execute("INSERT INTO explorer_store (hostname, path, result) VALUES (?, ?, '')", (host, path))
             conn.commit()
-    except Exception as e:
+    except Exception as _:
         app.logger.exception("Database commit failed")
     return jsonify({"status": "sent"})
 
@@ -902,7 +902,7 @@ def explorer_read():
             c = conn.cursor()
             c.execute("SELECT result FROM explorer_store WHERE hostname=?", (get_clean_host(request.args.get('hostname')),))
             row = c.fetchone(); out = row[0] if row and row[0] else ""
-    except Exception as e:
+    except Exception as _:
         app.logger.exception("Database fetch failed")  # Logs the full traceback
     return jsonify({"result": out})
 
@@ -919,7 +919,7 @@ def eventlog_req():
             if c.fetchone(): c.execute("UPDATE eventlog_store SET result='' WHERE hostname=?", (host,))
             else: c.execute("INSERT INTO eventlog_store (hostname, result) VALUES (?, '')", (host,))
             conn.commit()
-    except Exception as e:
+    except Exception as _:
         app.logger.exception("Database commit failed")
     return jsonify({"status": "sent"})
 
@@ -931,7 +931,7 @@ def eventlog_read():
             c = conn.cursor()
             c.execute("SELECT result FROM eventlog_store WHERE hostname=?", (get_clean_host(request.args.get('hostname')),))
             row = c.fetchone(); out = row[0] if row and row[0] else ""
-    except Exception as e:
+    except Exception as _:
         app.logger.exception("Database fetch failed")
     return jsonify({"result": out})
 
@@ -960,7 +960,7 @@ def list_deploy_files():
         for f in os.listdir('data/uploads'):
             filepath = os.path.join('data/uploads', f)
             if os.path.isfile(filepath): files.append({"name": f, "size": os.path.getsize(filepath)})
-    except Exception as e:
+    except Exception as _:
         app.logger.exception(f"File access failed")
     return jsonify(files)
 
@@ -973,7 +973,7 @@ def delete_deploy_file():
         filename = secure_filename(data.get('name', ''))
         os.remove(os.path.join('data/uploads', filename))
         audit_log(session.get('user'), "deleted_file", filename)
-    except Exception as e:
+    except Exception as _:
         app.logger.exception(f"Audit log failed for file deletion")
     return jsonify({"status": "success"})
 
@@ -1026,7 +1026,7 @@ def term_exec():
             else: c.execute("INSERT INTO terminal_store (hostname, cmd, output) VALUES (?, ?, '')", (host, cmd_type))
             conn.commit()
             audit_log(session.get('user'), f"terminal_execute_{base_cmd}", host)
-    except Exception as e:
+    except Exception as _:
         app.logger.exception(f"Audit log failed for command: {base_cmd} on host: {host}")
     return jsonify({"status": "sent"})
 
@@ -1041,7 +1041,7 @@ def term_read():
             row = c.fetchone()
             if row and row[0]:
                 out = row[0]; c.execute("UPDATE terminal_store SET output='' WHERE hostname=?", (host,)); conn.commit()
-    except Exception as e:
+    except Exception as _:
         app.logger.exception(f"Failed to process terminal_store update for host: {host}")
     return jsonify({"output": out})
 
@@ -1065,7 +1065,7 @@ def clear_screen(hostname):
     try:
         filepath = os.path.join('data/screens', f"{get_clean_host(hostname)}.jpg")
         if os.path.exists(filepath): os.remove(filepath)
-    except Exception as e:
+    except Exception as _:
         app.logger.exception(f"Failed to delete file: {filepath}")
     return jsonify({"status": "success"})
 
@@ -1136,7 +1136,7 @@ def get_processes(hostname):
                 out = json.loads(base64.b64decode(row[0]).decode('utf-8'))
                 c.execute("UPDATE processes_store SET result='' WHERE hostname=?", (get_clean_host(hostname),))
                 conn.commit()
-    except Exception as e:
+    except Exception as _:
         app.logger.exception("Database commit failed")
     return jsonify(out)
 

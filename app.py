@@ -281,7 +281,7 @@ def alert_monitor_daemon():
                 c.execute("SELECT * FROM settings WHERE id=1"); row = c.fetchone()
                 if not row: time.sleep(60); continue
                 
-                s_cpu, s_ram, s_disk, s_off, s_to, s_srv, s_user, enc_pass = row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8]
+                _, _, _, s_off, s_to, s_srv, s_user, enc_pass = row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8]
                 
                 smtp_password = None
                 if enc_pass:
@@ -308,7 +308,7 @@ def alert_monitor_daemon():
                     if (now - last_seen) > (s_off * 60):
                         alert_key = f"{host}_offline"
                         if alert_key not in alerted_states:
-                            send_custom_email(s_to, s_srv, s_user, s_pass, f"🚨 OFFLINE ALERT: {host}", f"Endpoint {host} unreachable for {s_off} mins.")
+                            send_custom_email(s_to, s_srv, s_user, s_pass, f"🚨 OFFLINE ALERT: {host}", f"Endpoint {host} unreachable for {s_off} mins.\nSystem Info: {sys_info}")
                             alerted_states.add(alert_key)
                     else: alerted_states.discard(f"{host}_offline")
         except Exception as _:

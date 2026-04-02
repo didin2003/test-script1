@@ -11861,3 +11861,323 @@ Traceback (most recent call last):
   File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
     raise effect
 Exception: DB error
+2026-04-02 15:09:16,278 ERROR Unhandled Exception: Test unhandled error
+2026-04-02 15:09:16,297 ERROR audit_log failed: DB error
+2026-04-02 15:09:16,403 ERROR Auto-register logging failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 192, in verify_agent
+    payload = json.loads(body)
+  File "/usr/lib/python3.10/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+  File "/usr/lib/python3.10/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+  File "/usr/lib/python3.10/json/decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+2026-04-02 15:09:16,461 ERROR Cleanup failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 238, in cleanup_files
+    for f in os.listdir(folder):
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: Folder not found
+2026-04-02 15:09:16,466 ERROR Backup cleanup failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 249, in backup_db
+    shutil.copy(DB_PATH, f"backup/fortigrid_{int(time.time())}.db")
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: Copy failed
+2026-04-02 15:09:16,486 ERROR Failed to send email to test@example.com
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 265, in send_custom_email
+    server = smtplib.SMTP(host, int(port), timeout=10)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: SMTP connection failed
+2026-04-02 15:09:16,501 ERROR Failed to send email to test@example.com
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 267, in send_custom_email
+    server.login(smtp_user, smtp_pass)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: Login failed
+2026-04-02 15:09:16,505 ERROR Failed to send email to test@example.com
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 264, in send_custom_email
+    host, port = smtp_server.split(':')
+ValueError: not enough values to unpack (expected 2, got 1)
+2026-04-02 15:09:16,688 ERROR Failed to parse payload JSON
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 343, in update_agent_data
+    payload = json.loads(row[1]) if row[1] else {}
+  File "/usr/lib/python3.10/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+  File "/usr/lib/python3.10/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+  File "/usr/lib/python3.10/json/decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+2026-04-02 15:09:16,692 ERROR Database operation failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 335, in update_agent_data
+    with get_db() as conn:
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: DB error
+2026-04-02 15:09:16,726 ERROR Failed to parse cmds JSON from DB
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 381, in queue_cmd
+    cmds = json.loads(row[0]) if row and row[0] else []
+  File "/usr/lib/python3.10/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+  File "/usr/lib/python3.10/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+  File "/usr/lib/python3.10/json/decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+2026-04-02 15:09:16,749 ERROR Database commit failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 372, in queue_cmd
+    with get_db() as conn:
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: DB error
+2026-04-02 15:09:16,977 INFO ratelimit 5 per 1 minute (127.0.0.1) exceeded at endpoint: setup
+2026-04-02 15:09:17,501 ERROR Unhandled Exception: DB error
+2026-04-02 15:09:17,595 ERROR Failed to process agent: DB error
+2026-04-02 15:09:17,615 ERROR Failed to update agent data
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 493, in receive_report
+    if request.verified_host != "UNKNOWN": update_agent_data(request.verified_host, data, is_full=True)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: Update error
+2026-04-02 15:09:17,664 ERROR Database operation failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 507, in receive_heartbeat
+    with get_db() as conn:
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: DB error
+2026-04-02 15:09:17,721 ERROR Invalid JSON in command_queue: Expecting value: line 1 column 1 (char 0)
+2026-04-02 15:09:18,024 ERROR Database commit failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 600, in term_agent_push
+    with get_db() as conn:
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: DB error
+2026-04-02 15:09:18,054 ERROR Database commit failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 619, in explorer_push
+    with get_db() as conn:
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: DB error
+2026-04-02 15:09:18,085 ERROR Database commit failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 636, in services_push
+    with get_db() as conn:
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: DB error
+2026-04-02 15:09:18,114 ERROR Database commit failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 653, in eventlog_push
+    with get_db() as conn:
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: DB error
+2026-04-02 15:09:18,146 ERROR Database commit failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 686, in update_processes
+    with get_db() as conn:
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: DB error
+2026-04-02 15:09:18,163 ERROR Database commit failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 704, in create_ticket
+    with get_db() as conn:
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: DB error
+2026-04-02 15:09:18,576 ERROR Database commit failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 857, in services_req
+    with get_db() as conn:
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: DB error
+2026-04-02 15:09:18,612 ERROR Failed to fetch result: DB error
+2026-04-02 15:09:18,657 ERROR Database commit failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 887, in explorer_req
+    with get_db() as conn:
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: DB error
+2026-04-02 15:09:18,730 ERROR Database fetch failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 901, in explorer_read
+    with get_db() as conn:
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: DB error
+2026-04-02 15:09:18,774 ERROR Database commit failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 916, in eventlog_req
+    with get_db() as conn:
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: DB error
+2026-04-02 15:09:18,806 ERROR Database fetch failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 930, in eventlog_read
+    with get_db() as conn:
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: DB error
+2026-04-02 15:09:18,919 ERROR File access failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 960, in list_deploy_files
+    for f in os.listdir('data/uploads'):
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: Dir not found
+2026-04-02 15:09:18,947 ERROR Audit log failed for file deletion
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 974, in delete_deploy_file
+    os.remove(os.path.join('data/uploads', filename))
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: File not found
+2026-04-02 15:09:19,081 ERROR Audit log failed for command: ping on host: TESTHOST
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 1022, in term_exec
+    with get_db() as conn:
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: DB error
+2026-04-02 15:09:19,117 ERROR Failed to process terminal_store update for host: TESTHOST
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 1038, in term_read
+    with get_db() as conn:
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: DB error
+2026-04-02 15:09:19,165 ERROR Failed to delete file: data/screens/TESTHOST.jpg
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 1067, in clear_screen
+    if os.path.exists(filepath): os.remove(filepath)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: Remove error
+2026-04-02 15:09:19,358 ERROR Database commit failed
+Traceback (most recent call last):
+  File "/home/didin-fgi/test-script1/app.py", line 1131, in get_processes
+    with get_db() as conn:
+  File "/usr/lib/python3.10/unittest/mock.py", line 1114, in __call__
+    return self._mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1118, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+  File "/usr/lib/python3.10/unittest/mock.py", line 1173, in _execute_mock_call
+    raise effect
+Exception: DB error

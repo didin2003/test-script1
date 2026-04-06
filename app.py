@@ -283,7 +283,7 @@ def alert_monitor_daemon():
                 
                 _, _, _, s_off, s_to, s_srv, s_user, enc_pass = row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8]
                 
-                smtp_password = None
+                # smtp_password = None
                 if enc_pass:
                     try:
                         s_pass = cipher_suite.decrypt(enc_pass).decode()  # ✅ remove .encode()

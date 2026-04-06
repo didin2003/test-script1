@@ -239,7 +239,7 @@ def cleanup_files():
                     path = os.path.join(folder, f)
                     if os.path.isfile(path) and os.path.getmtime(path) < time.time() - 7*86400: os.remove(path)
         except Exception:
-            app.logger.exception(f"Cleanup failed")
+            app.logger.exception("Cleanup failed")
         time.sleep(3600)
 threading.Thread(target=cleanup_files, daemon=True).start()
 
@@ -961,7 +961,7 @@ def list_deploy_files():
             filepath = os.path.join('data/uploads', f)
             if os.path.isfile(filepath): files.append({"name": f, "size": os.path.getsize(filepath)})
     except Exception as _:
-        app.logger.exception(f"File access failed")
+        app.logger.exception("File access failed")
     return jsonify(files)
 
 @app.route('/api/files/delete', methods=['POST'])
@@ -974,7 +974,7 @@ def delete_deploy_file():
         os.remove(os.path.join('data/uploads', filename))
         audit_log(session.get('user'), "deleted_file", filename)
     except Exception as _:
-        app.logger.exception(f"Audit log failed for file deletion")
+        app.logger.exception("Audit log failed for file deletion")
     return jsonify({"status": "success"})
 
 @app.route('/api/transfer/get/<filename>', methods=['GET'])

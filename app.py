@@ -169,50 +169,107 @@ def verify_agent(req):
     timestamp = req.headers.get("X-TIMESTAMP")
     nonce = req.headers.get("X-NONCE")
 
-    if not api_key or not signature or not timestamp or not nonce: return None
-    try:
-        if abs(time.time() - int(timestamp)) > 300: return None
-    except Exception: return None
+    # Early validation (reduces nesting)
+    if not all([api_key, signature, timestamp, nonce]):
+        return None
 
-    with NONCE_LOCK:
-        if nonce in USED_NONCES: return None
-        USED_NONCES[nonce] = True
+    if not is_valid_timestamp(timestamp):
+        return None
+
+    if not is_valid_nonce(nonce):
+        return None
 
     body = req.get_data()
-    host = None
-    
-    try:
-        with get_db() as conn:
-            row = conn.cursor().execute("SELECT hostname FROM agents_auth WHERE token=?", (api_key,)).fetchone()
-            if row: 
-                host = row[0]
-            else:
-                if req.headers.get("X-REGISTER-KEY") != REGISTRATION_KEY: return None
-                try:
-                    payload = json.loads(body)
-                    req_host = get_host_from_data(payload)
-                    if req_host != "UNKNOWN":
-                        c = conn.cursor()
-                        c.execute("DELETE FROM agents_auth WHERE hostname=?", (req_host,))
-                        c.execute("INSERT INTO agents_auth (hostname, token) VALUES (?, ?)", (req_host, api_key))
-                        conn.commit()
-                        host = req_host
-                        AGENT_CACHE[host] = api_key
-                        logging.info(f"[AUTO-REGISTER] Secure connection established for new host: {host}")
-                except Exception:
-                    logging.exception("Auto-register logging failed")
-    except Exception as _: return None
 
-    if not host: return None
+    host = get_or_register_host(req, api_key, body)
+    if not host:
+        return None
 
-    data_to_sign = body + timestamp.encode() + nonce.encode()
-    expected_sig = hmac.new(api_key.encode(), data_to_sign, hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(expected_sig, signature): return None
+    if not is_valid_signature(api_key, body, timestamp, nonce, signature):
+        return None
 
     return host
 
-def agent_hmac_required(f):
-    @wraps(f)
+
+# ---------------- HELPER FUNCTIONS ---------------- #
+
+def is_valid_timestamp(timestamp):
+    try:
+        return abs(time.time() - int(timestamp)) <= 300
+    except Exception:
+        return False
+
+
+def is_valid_nonce(nonce):
+    with NONCE_LOCK:
+        if nonce in USED_NONCES:
+            return False
+        USED_NONCES[nonce] = True
+    return True
+
+
+def get_or_register_host(req, api_key, body):
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            row = cursor.execute(
+                "SELECT hostname FROM agents_auth WHERE token=?",
+                (api_key,)
+            ).fetchone()
+
+            if row:
+                return row[0]
+
+            return auto_register(req, conn, api_key, body)
+
+    except Exception:
+        return None
+
+
+def auto_register(req, conn, api_key, body):
+    if req.headers.get("X-REGISTER-KEY") != REGISTRATION_KEY:
+        return None
+
+    try:
+        payload = json.loads(body)
+        req_host = get_host_from_data(payload)
+
+        if req_host == "UNKNOWN":
+            return None
+
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM agents_auth WHERE hostname=?", (req_host,))
+        cursor.execute(
+            "INSERT INTO agents_auth (hostname, token) VALUES (?, ?)",
+            (req_host, api_key)
+        )
+        conn.commit()
+
+        AGENT_CACHE[req_host] = api_key
+
+        logging.info(
+            "Secure connection established for new host: %s",
+            req_host
+        )
+
+        return req_host
+
+    except Exception:
+        logging.exception("Auto-register logging failed")
+        return None
+
+
+def is_valid_signature(api_key, body, timestamp, nonce, signature):
+    data_to_sign = body + timestamp.encode() + nonce.encode()
+
+    expected_sig = hmac.new(
+        api_key.encode(),
+        data_to_sign,
+        hashlib.sha256
+    ).hexdigest()
+
+    return hmac.compare_digest(expected_sig, signature)
     def decorated_function(*args, **kwargs):
         verified_host = verify_agent(request)
         if not verified_host: return jsonify({"error": "Unauthorized"}), 401
